@@ -1,0 +1,894 @@
+---
+title: "Project P4: Exploring Data on Terror Attacks"
+author: "Elias Laura Wiegandt"
+date: "March 20, 2017"
+output: html_document
+---
+
+# Introduction
+This is an exploratory data analysis of a dataset from the Global Terrorism Database byt START consortium.
+The dataset is loaded from Kaggle, and can be found here:
+[link](https://www.kaggle.com/START-UMD/gtd)
+
+A description of the methodology can is included in the uploaded zip-file, and can also be seen here: 
+[link](http://start.umd.edu/gtd/downloads/Codebook.pdf)
+
+This analysis has no objective goal, other than describing interesting relations in the data. The focal point of this analysis will be on the number of fatalities in terror attacks (both terrorists and victims).
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+# Set up R
+# Clear workspace and load libraries
+
+setwd('C:/Users/elias_000/Documents/Udacity/Data Analyst/P4/Project')
+rm(list=ls())
+cat("\014") 
+knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
+library(memisc)
+library(ggplot2)
+library(scales)
+library(tidyr)
+library(dplyr)
+library(gridExtra)
+library(reshape)
+library(stringr)
+library(RColorBrewer)
+```
+
+## Creating the dataset
+The dataset contains 156,772 rows and 137 variables. This analysis focusses on terror attacks in Western Europe from 2000-2015. This period and region is chosen because I am familiar with most of theese attacks, which makes the data cleaning process easier. 
+Further, to be sure only incidents which it is deemed certain was terror attacks are included. This is done by setting the variable "doubtterr" in the dataset to 0. This variable denotes whether or not it is doubted if the attack were actually a terror attack.
+Variables of interest are chosen. Theese include the number of fatalities, the number of wounded, the name of the terror group who committed or a believed withh little doubt to have commited the attack, the country the attack took place in, the primary weapon used in the attack, whether or not the attack was a suicide attack, the primary type of attack, two variables describing the target of the attack, date variables, the number of perpetrators and an ID to identify unique attacks.
+These variables were chosen as they are believed to sum up the characteristics of the attack, and also provides information for identifying the attack.
+Variables not included are the more specific variables describing the attack, target, secondary weapons, summaries and boolean variables describing very specific element. It is exactly because these variables are very specific (often consisting of pure text and not cathegories) that make them of little use; with a large dataset it is not feasible to explore very specific data for each observation.
+
+The described subset of the dataset includes 2423 observations and 14 variables.
+All coding in this R markdown file is designed such that it can handle the entire dataset if needed.
+Further, a function used for later transformationen of axes in charts is set up, and a date variable is constructed. The function "nroot_trans" is only used for graphical purposes.
+
+```{r echo=TRUE, Load_the_Data}
+t_raw <- tbl_df(read.csv('globalterrorismdb_0616dist.csv'))
+t_filter <- filter(t_raw,iyear>=2000 & 
+                     region_txt=='Western Europe' & 
+                     doubtterr==0)
+t_selected <- dplyr::select(t_filter, 
+                   nkill, 
+                   nwound, 
+                   gname, 
+                   country_txt,
+                   weaptype1_txt,
+                   suicide,
+                   attacktype1_txt,
+                   target1,
+                   corp1,
+                   nperps,
+                   iyear,
+                   imonth,
+                   iday,
+                   eventid
+                   )
+t <- droplevels(t_selected)
+t$date <- ISOdate(t$iyear, t$imonth, t$iday)
+
+nroot_trans = function() trans_new('nroot', transform = function(x) x^(1/4),
+                                      inverse = function(x) x^4)
+```
+
+The data looks like this:
+```{r}
+head(t)
+```
+
+A summary of all variables in the data is computed:
+
+```{r}
+summary(t)
+```
+
+
+# Stream of Consciousness Exploration
+This part describes the initial exploration of the dataset.
+
+## Fatalities from terrorism
+The first step is to look on the general variable of interest, the number of fatalities in terror attacks, denoted by the variable **nkill** in the dataset.
+The number of wounded will also be investigated here and there, but it is of secondary importance.
+
+## Drawing a timeline
+
+```{r echo=FALSE}
+plt_timeline <- ggplot(t, aes(x=date, y=nkill)) + 
+  geom_point(alpha=3/4, position = position_jitter(h = 0)) + 
+  labs(title = "Terror fatalities timeline", 
+       y="Number of fatalities", 
+       x="Timeline") +
+  scale_y_continuous(trans = nroot_trans(), 
+                     breaks = c(-1, 0, 1, 5, 10, 25, 50, 100)) +
+  theme_bw()
+
+t.by_year_month <- t %>% 
+  group_by(date) %>%
+  summarize(Fatalities = sum(nkill), 
+            Wounded = sum(nwound), 
+            Incidents=n()) %>%
+  arrange(date)
+
+plt_timeline_cumulative <- ggplot(t.by_year_month, 
+                                  aes(x=date, y=cumsum(Fatalities))) + 
+  geom_line() + 
+  labs(title = "Cumulated terror fatalities", 
+       y="Cumulated number of fatalities", 
+       x="Timeline") +
+  theme_bw()
+
+grid.arrange(plt_timeline,plt_timeline_cumulative,ncol=1) 
+
+```
+
+The dataset meassures each single attack, also in coordinated terror attack such as the London Bombings in 2005 or the Paris 2015 Attacks.
+From the top chart "Terror Fatalities Timeline", it appears as if 0-fatality terror attacks happen very often in Western Europe. From the bottom chart, "Cumulated Terror Fatalities", a slight positive tendency can be seen, which stems from constant terror attacks with low fatality. Four big jumps can be identified, in 2004, 2005, 2011 and 2015. These points must each contain one or more large attacks. These large attacks will be denoted "high-fatality" attacks in the following analysis.
+The high fatality attacks are: the Madrid Bombings of 2004, The London Bombings of 2005, The Utoya Shooting of 2011 and the Paris Attacks of 2015.
+
+## The Distribution of fatalities
+The next step is to investigate the distribution of the number of fatalities at each terror attack.
+
+```{r echo=FALSE}
+plt_histogram <- ggplot(aes(x = nkill), data = t) +
+  geom_histogram(color = 'black', fill = '#099DD9',binwidth=1) +
+  ggtitle('Price') +
+  labs(title = "Distribution of fatalities in terror attacks", 
+       y="Count of incidents", 
+       x="Fatalities") +
+  scale_y_continuous(trans = nroot_trans(), 
+                     breaks = c(1, 10, 100, 1000, 2000)) +
+  scale_x_continuous(breaks = seq(0,100,by=10)) +
+  expand_limits(x = 100) +
+  theme_bw()
+
+plt_lethality_hist <- ggplot(aes(x = nkill, weights=nkill),
+                             data = subset(t,nkill>0)) +
+  geom_histogram(color = 'black', 
+                 fill = '#099DD9',
+                 breaks=seq(0,100,by=10)) +
+  ggtitle('Price') +
+  labs(title = "Total fatalities in each attack", 
+       y="Total fatalities in all attacks", 
+       x="Fatalities") +
+  scale_x_continuous(breaks = seq(0,100,by=10)) +
+  theme_bw()
+
+grid.arrange(plt_histogram,plt_lethality_hist,ncol=1) 
+
+```
+
+Bear in mind that the y-axis on the topmost diagram "Distribution of fatalities in terror attacks" is scaled by the fourth root. It is clear from this chart that terror attacks with zero fatalities are by far the most prevalent. The data appear to be positively skewed.
+
+In the bottom diagram, the height of each histogram bin shows the sum of fatalities, and not the count of incidents as the topmost diagram. As can be seen, most fatalitites stem from the bin of attacks with 0-10 fatalities, and the total number of fatalities decline from 0 to 30 on the x-axis. But after 50, the number of fatalities increases. It can be argued that it is the total number of fatalities and not incidents that would be of interest to an analyst, and the bottom diagram emphasize that the attacks with a large number of fatalities appear to be responsible for a large share of the total fatalities.
+
+
+## The Distribution of wounded
+For comparison, the distribution of wounded is also computed
+
+```{r echo=FALSE}
+plt_wounded_histogram <- ggplot(aes(x = nwound), data = t) +
+  geom_histogram(color = 'black', fill = '#099DD9',binwidth=1) +
+  ggtitle('Price') +
+  labs(title = "Distribution of wounded in terror attacks", 
+       y="Count of incidents", 
+       x="Wounded") +
+  scale_y_continuous(trans = nroot_trans(), 
+                     breaks = c(1, 10, 100, 1000, 2000)) +
+  scale_x_continuous(breaks = seq(0,1000,by=50)) +
+  expand_limits(x = 100) +
+  theme_bw()
+
+plt_wounded_hist_total <- ggplot(aes(x = nwound, weights=nwound),
+                             data = subset(t,nwound>0)) +
+  geom_histogram(color = 'black', 
+                 fill = '#099DD9',
+                 breaks=seq(0,500,by=25)) +
+  ggtitle('Price') +
+  labs(title = "Total wounded in each attack", 
+       y="Total wounded in all attacks", 
+       x="Wounded") +
+  scale_x_continuous(breaks = seq(0,500,by=50)) +
+  theme_bw()
+
+grid.arrange(plt_wounded_histogram,plt_wounded_hist_total,ncol=1) 
+
+```
+
+As with the number of fatalities, the topmost histogram shows a clear positive skew. From 0 to 50 wounded, the frequency of attacks seem to decline as the number of wounded is increased. But above a count of 50 wounded, this does not seem to be the case.
+
+## Relation between fatalities and wounded
+
+```{r}
+ggplot(t, aes(x=nwound, y=nkill)) + 
+  geom_point(alpha=3/4, position = position_jitter(h = 0)) + 
+  labs(title = "Correlation between wounded and fatalities", 
+       y="Number of fatalities", 
+       x="Number of wounded") +
+  scale_y_continuous(trans = nroot_trans(), 
+                     breaks = c(-1, 0, 1, 5, 10, 25, 50, 100, 250, 500)) +
+  scale_x_continuous(trans = nroot_trans(), 
+                     breaks = c(-1, 0, 1, 5, 10, 25, 50, 100, 250, 500)) +
+  stat_smooth(method = 'lm') +
+  theme_bw()
+```
+
+From the plot, only weak indications of a linear relation seem to be present.
+The Pearsson-correlation between wounded and fatalities is the calculated:
+
+```{r}
+t_wound_kill <- subset(t,nkill >= 0 & nwound >= 0 )
+cor(t_wound_kill$nwound,t_wound_kill$nkill,method="pearson")
+```
+
+
+
+
+
+## Incidents and fatalities by country
+To understand the data better, the countries with the most terror attacks and the most fatalities are calculated. This is done by grouping the data.
+
+```{r echo=FALSE}
+t.by_country <- t %>% 
+  group_by(country_txt) %>%
+  summarize(fatalities = sum(nkill), 
+            wounded = sum(nwound),
+            incidents=n()) %>%
+  arrange(desc(fatalities))
+
+n=-10
+top_countries_fatalities <- top_n(t.by_country,-n,fatalities)
+top_countries_incidents <- top_n(t.by_country,-n,incidents)
+top_countries_wounded <- top_n(t.by_country,-n,wounded)
+
+plt_countries_incidents <- ggplot(top_countries_incidents, 
+                                  aes(x=reorder(country_txt, -incidents),
+                                      y = incidents)) + 
+  geom_bar(stat="identity",
+           color = 'black', 
+           fill = '#099DD9') +
+  labs(title = "Countries Ranked by number of incidents", 
+       y="Number of Incidents",
+       x="Country") +
+  theme_bw() +
+  theme(axis.text=element_text(size=8))
+
+plt_countries_fatalities <- ggplot(top_countries_fatalities, 
+                                   aes(x=reorder(country_txt,-fatalities), 
+                                       y = fatalities)) + 
+  geom_bar(stat="identity",
+           color = 'black', 
+           fill = '#099DD9') +
+  labs(title = "Countries Ranked by number of fatalities", 
+       y="Number of Fatalities", 
+       x="Country") +
+  theme_bw() +
+  theme(axis.text=element_text(size=8))
+
+plt_countries_wounded <- ggplot(top_countries_wounded, 
+                                aes(x=reorder(country_txt,-Wounded), 
+                                    y = wounded)) + 
+  geom_bar(stat="identity",
+           color = 'black', 
+           fill = '#099DD9') +
+  labs(title = "Countries Ranked by number of Wounded", 
+       y="Number of Wounded", 
+       x="Country") +
+  theme_bw() +
+  theme(axis.text=element_text(size=8))
+
+
+grid.arrange(plt_countries_incidents, plt_countries_fatalities, ncol=1)
+```
+
+It appears as if a lot of terror attacks takes place in the UK, Greece, Spain and France. The countries with the highest number of fatalities are Spain,  France, Norway and the UK. There do seem to be some relation between the number of incidents and the number of fatalities, but as seen from the distribution of fatalities, outliers seem to have a large and significant effect. This can also explain why Greece has a high number of incidents but low number of fatalities, while Norway is the opposite - it is likely that one or more of the high-fatality attacks are related to Norway, while none are related to Greece.
+
+
+## Incidents and fatalities by terror group name
+
+```{r echo=FALSE}
+t.by_group <- t %>% 
+  group_by(gname) %>%
+  summarize(fatalities = sum(nkill), 
+            wounded = sum(nwound), 
+            incidents=n()) %>%
+  arrange(desc(fatalities))
+
+n=10
+top_groups_fatalities <- top_n(t.by_group,n,fatalities)
+top_groups_incidents <- top_n(t.by_group,n,incidents)
+top_groups_wounded <- top_n(t.by_group,n,wounded)
+
+plt_groups_incidents <- ggplot(top_groups_incidents, 
+                               aes(x=reorder(gname, -incidents), 
+                                   y = incidents)) + 
+  geom_bar(stat="identity",
+           color = 'black', 
+           fill = '#099DD9') +
+  labs(title = "Terror Groups ranked by number of incidents", 
+       y="Number of incidents", 
+       x="Group Name") +
+  theme_bw() +
+  theme(axis.text=element_text(size=8)) +
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 10))
+
+plt_groups_fatalities <- ggplot(top_groups_fatalities, 
+                                aes(x=reorder(gname,-fatalities), 
+                                    y = fatalities)) + 
+  geom_bar(stat="identity",
+           color = 'black', 
+           fill = '#099DD9') +
+  labs(title = "Terror Groups ranked by number of fatalities", 
+       y="Number of fatalities", 
+       x="Group name") +
+  theme_bw() +
+  theme(axis.text=element_text(size=8)) +
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 10))
+
+plt_groups_wounded <- ggplot(top_groups_wounded, 
+                             aes(x=reorder(gname,-wounded), y = wounded)) +
+  geom_bar(stat="identity",
+           color = 'black', 
+           fill = '#099DD9') +
+  labs(title = "Terror Groups Ranked by number of Wounded", 
+       y="Number of Wounded", 
+       x="Group name") +
+  theme_bw() +
+  theme(axis.text=element_text(size=8)) +
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 10))
+
+grid.arrange(plt_groups_incidents, plt_groups_fatalities, ncol=1)
+```
+
+It is interesting that a lot of incidents are carried out by unknown perpetrators. Disregarding these, it appears that ETA, FLNC and Irish/Northern Irish groups are behind most of the incidents. But of these groups, only ETA makes it to the top 5 for fatalities. 
+
+The four top groups when it comes to fatalities all relate to one of the high-fatalitity attacks mentioned earlier. The "Abu Hafs al-Masri Brigades" claim to have orchestrated the Madrid 2004 bombings, which propels them into first place. This claim is seriously doubted, and the claim is marked as dubitable in the dataset. The "Unaffiliated Individual(s)" group is represented in the top 3 because it includes Anders Breivik, who commited the Utoya massacre in Norway. ISIL/ISIS/IS/Daesh orchestrated the Paris 2015 attacks, while the "Secret Organization of al-Qaida in Europe" claims the London 2005 bombings. Both the RHD and the RIRA, who make it into 8th and 9th place respectively, are related to Northern Ireland, though on oppposing sides in the conflict.
+The "Uknown" category does not make it into the top 5. This could be because the attacks with the highest fatalities are almost always claimed by a terror group.
+
+To further link the terror groups to the attack, at timeline with terror attack sizes and names of groups is constructed:
+
+```{r echo=FALSE}
+n=10
+top_groups <- droplevels(dplyr::select(top_n(t.by_group,n,fatalities),
+                                       gname,fatalities))
+t <- mutate(t, top_groups = ifelse(gname %in% top_groups$gname, 
+                                   as.character(gname), 
+                                   "Other"))
+
+ggplot(t, aes(x=date, y=nkill, color=top_groups )) + 
+  geom_point(alpha=3/4, position = position_jitter(h = 0)) + 
+  labs(title = "Terror Attacks timeline", 
+       y="Number of fatalities", 
+       x="Timeline") +
+  scale_y_continuous(trans = nroot_trans(), 
+                     breaks = c(-1, 0, 1, 5, 10, 25, 50, 100)) +
+  theme_bw()
+```
+
+The above diagram shows how the different attacks are linked to different groups. Due to the high number of attacks with zero or one fatality, the perpetrator behind each of these attacks are difficult to make out. This is a shortcomming of using a scatterplot with a high number of datapoints located very close to each other.
+
+The dataset also includes the number of wounded in each attack. To see the relation between fatalities, wounded and different terrorgroups, a scatter of this is constructed.
+
+
+
+
+```{r echo=FALSE}
+ggplot(t, aes(x=nwound, y=nkill, color=top_groups )) + 
+  geom_point(alpha=3/4, position = position_jitter(h = 0)) + 
+  labs(title = "Terror Groups", 
+       y="Number of fatalities", 
+       x="Number of wounded") +
+  scale_y_continuous(trans = nroot_trans(), 
+                     breaks = c(-1, 0, 1, 5, 10, 25, 50, 100)) +
+  scale_x_continuous(trans = nroot_trans(), 
+                     breaks = c(-1, 0, 1, 5, 10, 25, 50, 100, 250, 500)) +
+  theme_bw()
+```
+
+The chart seems to indicate a positive relationship. Attacks in the "north-east" corner of the chart can be considered the most severe.
+
+## Fatalities relation to the weapons used
+The deeper question this analysis will investigate is "which type of terror attacks are the most lethal?". To do this, a scatterplot and boxplots illustrating the fatalities, wounded and primary used weapons are constructed. Only the top 5 most lethal weapons are used in the diagram, in order for the diagram to not be overloaded with information.
+
+```{r echo=FALSE}
+n=5
+
+t.by_weapon <- t %>% 
+  group_by(weaptype1_txt) %>%
+  summarize(fatalities = sum(nkill), wounded = sum(nwound), incidents=n()) %>%
+  arrange(desc(fatalities))
+
+top_weapons <- droplevels(dplyr::select(top_n(t.by_weapon,n,fatalities),
+                                        weaptype1_txt,fatalities))
+
+top_weapons_fatalities <- top_n(t.by_weapon,n,fatalities)
+top_weapons_incidents <- top_n(t.by_weapon,n,incidents)
+
+plt_weapons_incidents <- ggplot(top_weapons_incidents, 
+                                  aes(x=reorder(weaptype1_txt, -incidents),
+                                      y = incidents)) + 
+  geom_bar(stat="identity",
+           color = 'black', 
+           fill = '#099DD9') +
+  labs(title = "Weapons ranked by number of incidents", 
+       y="Number of incidents",
+       x="Weapon") +
+  theme_bw() +
+  theme(axis.text=element_text(size=8))
+
+plt_weapons_fatalities <- ggplot(top_weapons_fatalities, 
+                                 aes(x=reorder(weaptype1_txt,-fatalities), 
+                                     y = fatalities)) + 
+  geom_bar(stat="identity",
+           color = 'black', 
+           fill = '#099DD9') +
+  labs(title = "Weapons ranked by number of fatalities", 
+       y="Number of fatalities", 
+       x="Weapon") +
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 20)) +
+  theme_bw() +
+  theme(axis.text=element_text(size=8))
+
+grid.arrange(plt_weapons_incidents, plt_weapons_fatalities, ncol=1)
+```
+
+As can be seen, explosives are the most prevalent weapon in terror attacks. Interestingly, incendiary weapons are used in a lot of incidents, but cause few fatalities. Firearms appear to be overrepresented in fatalities.
+
+```{r echo=FALSE}
+
+t <- mutate(t, top_weapons = ifelse(weaptype1_txt %in% 
+                                      top_weapons$weaptype1_txt,
+                                    ifelse(weaptype1_txt==
+"Vehicle (not to include vehicle-borne explosives, i.e., car or truck bombs)",
+                                         "Vehicle", 
+                                           as.character(weaptype1_txt)),
+                                           "Other"))
+
+ggplot(t, aes(x=nwound, y=nkill, color=top_weapons)) + 
+  geom_point(alpha=3/4, position = position_jitter(h = 0)) + 
+  labs(title = "Terror fatalities timeline", 
+       y="Number of fatalities", x="Number of wounded") +
+  scale_y_continuous(trans = nroot_trans(), 
+                     breaks = c(-1, 0, 1, 5, 10, 25, 50, 100)) +
+  scale_x_continuous(trans = nroot_trans(),
+                     breaks = c(-1, 0, 1, 5, 10, 25, 50, 100,200,300)) +
+  theme_bw()
+```
+
+This diagram indicates that the most severe terror attacks were carried out with either explosives or firearms. And explosives seem to result in a higher number of wounded than firearms.
+
+Due to the extreme distribution of the number of fatalities and wounded, the scatterplot might "hide" the relation between weapon type and fatalities/wounded for the smaller attacks. To better understand the distribution of fatalities relation to the used weapons, boxplots are constructed.
+
+```{r echo=FALSE}
+qplot(x=top_weapons, y=nkill, data = t, geom='boxplot') +
+  xlab('Weapon Type') + 
+  ylab('Number of fatalities') +
+  scale_y_continuous(trans = nroot_trans(),
+                     breaks = c(-1, 0, 1, 5, 10, 25, 50, 100,200,300)) +
+  theme_bw() +
+  theme(axis.text=element_text(size=8))
+```
+```{r echo=FALSE}
+table(t$top_weapons)
+```
+
+These boxplots are characterized by being "mashed together" around zero fatalities. This illustrates the high number of attacks without fatalities. The boxplot for Explosives is entirely located at zero fatalities, which underlines that explosive devices of different kinds are used in many attacks without casualties. The large number of outliers for this category underscores how the distribution of fatalities are clearly not gaussian. 
+Fatalities from firearms are the only category that appear to have a somewhat wellbehaved distribution - but bear in mind the y-axis is scaled by taking the fourth root.
+
+
+## Are suicide attacks more lethal?
+The next variable to investigate is whether or not the attack was a suicide attack.
+
+```{r echo=FALSE}
+t.by_suicide <- t %>% 
+  group_by(suicide) %>%
+  summarize(fatalities = sum(nkill), wounded = sum(nwound), incidents=n()) %>%
+  arrange(desc(fatalities))
+
+
+plt_suicide_incidents <- ggplot(t.by_suicide, 
+                                  aes(x=suicide,
+                                      y = incidents)) + 
+  geom_bar(stat="identity",
+           color = 'black', 
+           fill = '#099DD9') +
+  labs(title = "Suicide attack incidents", 
+       y="Number of incidents",
+       x="Suicide attack") +
+  #scale_y_continuous(trans = nroot_trans()) +
+  scale_x_continuous(breaks = c(0, 1)) +
+  theme_bw() +
+  theme(axis.text=element_text(size=8))
+
+plt_suicide_fatalities <- ggplot(t.by_suicide, 
+                                  aes(x=suicide,
+                                      y = fatalities)) + 
+  geom_bar(stat="identity",
+           color = 'black', 
+           fill = '#099DD9') +
+  labs(title = "Suicide attack fatalities", 
+       y="Number of fatalities",
+       x="Suicide attack") +
+  scale_x_continuous(breaks = c(0, 1)) +
+  theme_bw() +
+  theme(axis.text=element_text(size=8))
+
+grid.arrange(plt_suicide_incidents, plt_suicide_fatalities, ncol=1)
+
+```
+
+From the above charts, it is clear that suicide attacks are quite rare, but cause relatively high fatalities.
+
+```{r echo=FALSE}
+
+t <- mutate(t, suicide_attack = ifelse(suicide == 1 ,
+                                       "Suicide attack", 
+                                       "Not suicide attack"))
+
+ggplot(t, aes(x=nwound, y=nkill, color=suicide_attack )) + 
+  geom_point(alpha=3/4, position = position_jitter(h = 0)) + 
+  labs(title = "Suicide attack severity", 
+       y="Number of fatalities", 
+       x="Number of wounded") +
+  scale_y_continuous(trans = nroot_trans(), 
+                     breaks = c(-1, 0, 1, 5, 10, 25, 50, 100)) +
+  scale_x_continuous(trans = nroot_trans(),
+                     breaks = c(-1, 0, 1, 5, 10, 25, 50, 100,200,300)) +
+  theme_bw()
+```
+
+From the above diagram, about half of the high-fatality attacks apppear to be suicide attacks. A few of the smaller attacks are also suicide attacks, but it appears to be far less than half. To investigate further, boxplots are constructed.
+
+```{r echo=FALSE}
+qplot(x=suicide_attack, y=nkill, data = t, geom='boxplot') +
+  xlab('') + 
+  ylab('Number of fatalities') +
+  scale_y_continuous(trans = nroot_trans(),
+                     breaks = c(-1, 0, 1, 5, 10, 25, 50, 100,200,300)) +
+  theme_bw()
+```
+```{r echo=FALSE}
+table(t$suicide_attack)
+```
+
+The boxplot is distorted by the high number of non-suicide attacks. The category "Suicide attack" only includes 13 incidents. That said, suicide attacks clearly appears to be more lethal.
+
+## Fatalities related to the attack type
+Next, the relation between the type of attack and the number of fatalities is explored.
+
+```{r echo=FALSE}
+n=5
+
+t.by_attack_type <- t %>% 
+  group_by(attacktype1_txt) %>%
+  summarize(fatalities = sum(nkill), Wounded = sum(nwound), incidents=n()) %>%
+  arrange(desc(fatalities))
+
+top_attacks <- droplevels(dplyr::select(top_n(t.by_attack_type,n,fatalities),
+                                        attacktype1_txt,fatalities))
+
+
+top_attacks_fatalities <- top_n(t.by_attack_type,n,fatalities)
+top_attacks_incidents <- top_n(t.by_attack_type,n,incidents)
+
+plt_attacks_incidents <- ggplot(top_attacks_incidents, 
+                                  aes(x=reorder(attacktype1_txt, -incidents),
+                                      y = incidents)) + 
+  geom_bar(stat="identity",
+           color = 'black', 
+           fill = '#099DD9') +
+  labs(title = "Attack types ranked by number of incidents", 
+       y="Number of incidents",
+       x="Attack type") +
+  theme_bw() +
+  theme(axis.text=element_text(size=8))
+
+plt_attacks_fatalities <- ggplot(top_attacks_fatalities, 
+                                 aes(x=reorder(attacktype1_txt,-fatalities),
+                                     y = fatalities)) + 
+  geom_bar(stat="identity",
+           color = 'black', 
+           fill = '#099DD9') +
+  labs(title = "Attack types ranked by number of incidents", 
+       y="Number of fatalities", 
+       x="Attack type") +
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 20)) +
+  theme_bw() +
+  theme(axis.text=element_text(size=8))
+
+grid.arrange(plt_attacks_incidents, plt_attacks_fatalities, ncol=1)
+
+```
+
+```{r echo=FALSE}
+
+
+
+t <- mutate(t, top_attack_types = ifelse(attacktype1_txt %in% 
+                                           top_attacks$attacktype1_txt, 
+                                         as.character(attacktype1_txt), 
+                                         "Other"))
+
+ggplot(t, aes(x=nwound, y=nkill, color=top_attack_types )) + 
+  geom_point(alpha=3/4, position = position_jitter(h = 0)) + 
+  labs(title = "Terror fatalities timeline", 
+       y="Number of fatalities", 
+       x="Number of wounded") +
+  scale_y_continuous(trans = nroot_trans(), 
+                     breaks = c(-1, 0, 1, 5, 10, 25, 50, 100)) +
+  scale_x_continuous(trans = nroot_trans(),
+                     breaks = c(-1, 0, 1, 5, 10, 25, 50, 100,200,300)) +
+  theme_bw()
+```
+
+As seen from the section on weapons, bombings and armed assaults again appear to be the most severe type of attacks. The only addition appear to be the new "Hostage Taking" categories. One of the high-fatality attacks are denoted as this.
+The conclusions are the same as for weapons. Explosives and armed assaults are the most severe type of attacks, with explosives often resulting in more wounded than armed assaults.
+
+```{r echo=FALSE}
+qplot(x=top_attack_types, y=nkill, data = t, geom='boxplot') +
+  xlab('Attack type') + 
+  ylab('Number of fatalities') +
+  scale_y_continuous(trans = nroot_trans(),
+                     breaks = c(-1, 0, 1, 5, 10, 25, 50, 100,200,300)) +
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 10)) +
+  theme_bw()
+```
+```{r echo=FALSE}
+table(t$top_attack_types)
+```
+
+The box plot and table indicates the already known point; a lot of attacks have zero fatalities, which leads to a large number of outliers and generally non-gaussian behavior.
+A new point is seen from the category "assasinations". These appear to often result in the death of at least one victim. With 50 assasinations in the dataset, they are surprisingly prevalent.
+
+## Other variables
+The target of different attacks are investigated.
+
+```{r echo=FALSE}
+n=10
+
+t.by_target_type <- t %>% 
+  group_by(target1) %>%
+  summarize(fatalities = sum(nkill), Wounded = sum(nwound), Incidents=n()) %>%
+  arrange(desc(fatalities))
+
+top_target_type <- 
+  droplevels(dplyr::select(top_n(t.by_target_type,n,fatalities),
+                                       target1,fatalities))
+
+t <- mutate(t, top_target_types = ifelse(target1 %in% top_target_type$target1, 
+                                  as.character(target1), 
+                                  "Other"))
+
+ggplot(t, aes(x=nwound, y=nkill, color=top_target_types )) + 
+  geom_point(alpha=3/4, position = position_jitter(h = 0)) + 
+  labs(title = "Terror fatalities by target, v01", 
+       y="Number of fatalities", 
+       x="Number of wounded") +
+  scale_y_continuous(trans = nroot_trans(), 
+                     breaks = c(-1, 0, 1, 5, 10, 25, 50, 100)) +
+  scale_x_continuous(trans = nroot_trans(),
+                     breaks = c(-1, 0, 1, 5, 10, 25, 50, 100,200,300)) +
+  theme_bw()
+```
+
+From this diagram, it can be seen that the naming of the target type is somewhat inconsistent. The Madrid Bombings of 2004 seem to be lumped under one big headline, while the London 2005 Bombings are named by the specific vehicle they took place in. Due to this, it does not make sense to investigate the distribution of the variable.
+
+
+```{r echo=FALSE}
+n=10
+
+t.by_target_name <- t %>% 
+  group_by(corp1) %>%
+  summarize(fatalities = sum(nkill), wounded = sum(nwound), incidents=n()) %>%
+  arrange(desc(fatalities))
+
+top_target_name <- droplevels(dplyr::select(top_n(t.by_target_name,
+                                                  n,
+                                                  fatalities),
+                                            corp1,fatalities))
+
+t <- mutate(t, top_target_name = ifelse(corp1 %in% 
+                                          top_target_name$corp1, 
+                                        ifelse(eventid=="201107220011" ,
+                                               "Utoya (Civilians)",
+                                               ifelse(corp1=="" | 
+                                                      corp1=="Not Applicable"|
+                                                      corp1 == "Unknown",
+                                                      "Other", 
+                                                      as.character(corp1))),
+                                        "Other"))
+
+            
+ggplot(t, aes(x=nwound, y=nkill, color=top_target_name )) + 
+  geom_point(alpha=3/4, position = position_jitter(h = 0)) + 
+  labs(title = "Terror fatalities by target, v02", 
+       y="Number of fatalities",
+       x="Number of wounded") +
+  scale_y_continuous(trans = nroot_trans(), 
+                     breaks = c(-1, 0, 1, 5, 10, 25, 50, 100)) +
+  scale_x_continuous(trans = nroot_trans(),
+                     breaks = c(-1, 0, 1, 5, 10, 25, 50, 100,200,300)) +
+  theme_bw()
+```
+
+From this diagram, the same problem as with the previous chart can be see: the naming of the target type is inconsistent. The London Bombings of 2005 are collected under one target, while the Paris 2015 Attacks are named after the specific venue they took place in. Becuase of this, it does not make sense to investigate the distribution of this target variable either.
+
+## Does the number of perpetrators affect the deathtoll?
+The last variable to be explored is the number of perpetrators.
+
+```{r echo=FALSE}
+
+#plt_perps_histogram <- 
+ggplot(aes(x = nperps), data = subset(t,nperps>0)) +
+  geom_histogram(color = 'black', fill = '#099DD9',binwidth=1) +
+  ggtitle('Price') +
+  labs(title = "Distribution of perpetrators in terror attacks", 
+       y="Count of incidents", 
+       x="Perpetrators") +
+  scale_y_continuous(trans = nroot_trans(), 
+                     breaks = c(1, 10, 100, 1000, 2000)) +
+  scale_x_continuous(breaks = seq(0,1000,by=50)) +
+  expand_limits(x = 100) +
+  theme_bw()
+
+# plt_perp_hist_total <- ggplot(aes(x = nperps, weights=nperps),
+#                              data = subset(t,nperps>0)) +
+#   geom_histogram(color = 'black', 
+#                  fill = '#099DD9',
+#                  breaks=seq(0,700,by=25)) +
+#   ggtitle('Price') +
+#   labs(title = "Total numper of perpetrators in each attack", 
+#        y="Total perpetrators in all attacks", 
+#        x="Perpetrators") +
+#   scale_x_continuous(breaks = seq(0,700,by=50)) +
+#   theme_bw()
+# 
+# grid.arrange(plt_perps_histogram,plt_perp_hist_total,ncol=1) 
+
+```
+
+The most prevalent number of perpetratos appear to be one, and the frequency of both incidents appear as the number of perpetrators is increased. One incident with about 700 perpetratos can be seen - this is most likely an outlier of little interest. The number of perptrators appear more "well behaved" than e.g. the number of wounded and fatalities.
+
+
+
+```{r echo=FALSE}
+
+
+ggplot(subset(t,nperps>0), aes(x=nperps, 
+                               y=nkill, 
+                               color=top_target_name, 
+                               size=nwound )) + 
+  geom_point(alpha=3/4, position = position_jitter(h = 0)) + 
+  labs(title = "Terror fatalities by number of perpetrators", 
+       y="Number of fatalities", 
+       x="Number of perpetrators") +
+  scale_y_continuous(trans = nroot_trans(), 
+                     breaks = c(-1, 0, 1, 5, 10, 25, 50, 100)) +
+  scale_x_continuous(trans = nroot_trans(),
+                     breaks = c(0, 1,2,3,4, 5, 10, 25, 50, 100,250,500)) +
+  theme_bw()
+```
+
+The most severe attacks seems to have been carried out by 1-5 perpetrators. The more perpetrators, the less severe attack, it appears. This might be because the dataset has termed  som riots (including a large number of perpetrators) to be terror. It could be interesting to investigate whether or not there is a relation between high-fatality attacks and the their number of perpetrators.
+
+# Preliminary Statistical Analysis
+As the number of high-fatality attacks are few but severe, they would dominate any statistical model. Since variance of the number of fatalities (nkill in the dataset) is not known, the central limit theorem cannot be applied. Therefore statistical inference is pointless.
+
+But a statistical model could possibly be applied to the entire terror attack dataset, if it was cleaned. Doing this cleaning of the entire dataset is beyond the scope of this analysis, but a statistical model is included below.
+
+First, factors are set and a convenient value is chosen as the one with the lowest level.
+
+```{r echo=FALSE}
+t$top_attack_types <- as.factor(t$top_attack_types)
+t$top_attack_types <- relevel(t$top_attack_types, "Other",first = FALSE)
+t$top_weapons <- as.factor(t$top_weapons)
+t$top_weapons <- relevel(t$top_weapons, "Other",first = FALSE)
+```
+
+Second, a linear model i set up
+```{r echo=FALSE}
+
+m1 <- lm(I(nkill^(1/4)) ~ top_weapons, data = t)
+m2 <- update(m1, ~ . + suicide_attack)
+m3 <- update(m2, ~ . + nperps)
+m4 <- update(m3, ~ . + top_attack_types)
+mtable(m4)
+```
+
+The results of the statistical modelling is shown above. The conclusions from the scrutinizing of the plots earlier in the analysis can also be seen here. The use of firearms, whether or not the attack was a suicide attack, if it was an armed assault or if it was an assasination, all appear to increase the deathtoll of an attack,
+Althoughh many of the high-fatality attacks were bombings, the high number of bombings without fatalities cause this variable to not be significant. Hostage taking and melee attacks all have significantly positive coefficients. But of these, only melee appear "frequently" (above fifty incidents) in the dataset.
+The model claims it can explain about 40% of the variance.
+
+As noted in the introduction, this model is not to be trusted, it is only an example of what could be done, if the entire dataset was cleaned.
+
+The residuals are plotted, to get a better grasp of the model. They are plotted against the fitted values for the model, which can be used to reveal bias in the model.
+
+```{r}
+ggplot(m4, aes(x=.fitted, y=.resid))+geom_point() +
+  labs(title = "Fitted vs Residuals", 
+       y="Residuals", 
+       x="Fitted values") +
+  theme_bw()
+```
+
+As can be seen from the above plot, there there appear to be three clusters in the residuals. One along a declining line, starting around origo. This is likely to be observations with varying number of perpetrators but no fatalities.
+The second group consistst of points above the first, seemmingly also centered around a declining line but clearly dispersed. The residuals are all positive for these, indicating the the fitted value is below the residual. This is likely to be attacks that resulted in fatalities.
+The third group appear close to a fitted value of 1.4, but with residuals spread around a mean of zero. This could be a very specific type of attack, of which there have only been few but deadly attack. This would result in a high coefficient for the attack type, dominate the other futures and cause the fitted value to be rougly equal.
+
+If the model was good, the relation between residuals and fitted values would look like white noise. This does not appear to be the case.
+
+# Final plots and summary
+The section include the final three plots that best explains information in the dataset.
+
+The first plot to investigate, is the distribution of fatalities.
+
+```{r echo=FALSE}
+ggplot(aes(x = nkill), data = t) +
+  geom_histogram(color = 'black', fill = '#099DD9',binwidth=1) +
+  ggtitle('Price') +
+  labs(title = "Distribution of fatalities in terror attacks", 
+       y="Count of incidents (fourth root scale)", 
+       x="Fatalities") +
+  scale_y_continuous(trans = nroot_trans(), 
+                     breaks = c(1, 10, 100, 1000, 2000)) +
+  scale_x_continuous(breaks = seq(0,100,by=10)) +
+  expand_limits(x = 100) +
+  theme_bw()
+```
+
+The above chart shows just how prevalent attacks with zero fatalities are, but also the large positive skew of the distribution. The frequency of attacks declines along the x-axis from 0 to 10 fatalities. The likelihood of an attack does not seem to decrease above 10 fatalities. The x-axis is on purpose not scaled, as the point of the chart is to show that the variance of fatalities cannot truly be deduced from the data.
+This hints at the possiblity that high-fatality incidents are driving the total number of casualities. But it also highlights how difficult it is to work statistically with fatalities from terror attacks.
+
+The next step is to gain understainding of the attacks by plotting a timeline.
+
+```{r echo=FALSE}
+n=5
+top_countries <- droplevels(dplyr::select(top_n(t.by_country,n,fatalities),
+                                          country_txt,fatalities))
+t <- mutate(t, top_countries = ifelse(country_txt %in% 
+                                        top_countries$country_txt,
+                                      as.character(country_txt), 
+                                      "Other"))
+
+ggplot(t, aes(x=date, y=nkill, color=top_countries )) + 
+  geom_point(alpha=3/4, position = position_jitter(h = 0)) + 
+  labs(title = "Terror Attacks Timeline", 
+       y="Number of fatalities", 
+       x="Timeline",
+       size="Number of fatalities",
+       color="Country") +
+  scale_y_continuous(trans = nroot_trans(), 
+                     breaks = c(-1, 0, 1, 5, 10, 25, 50, 100)) +
+  theme_bw()
+```
+
+The above chart shows how small level terror continously happen across Western Europe. But the fatalities of these attacks are dwarfed by the fatalities from the larger attacks, which occurs infrequently. If the goal is to understand the number of fatalities in an attack, understanding these larger attacks is all-important. There appear to be four large attacks: in Spain 2004, in the UK 2005, in Norway 2011 and in France 2015. These attacks were all comprised of several attacks happening on the same day.
+
+The final step is to gain insight into which weapons causes the high fatalities.
+
+```{r echo=FALSE}
+ggplot(t, aes(x=nwound, y=nkill, color=top_weapons )) + 
+  geom_point(alpha=3/4, position = position_jitter(h = 0)) + 
+  labs(title = "Terror fatalities and weapons", 
+       y="Number of fatalities", x="Number of wounded",
+       size="Number of fatalities",
+       color="Primary weapon in attack") +
+  scale_y_continuous(trans = nroot_trans(), 
+                     breaks = c(-1, 0, 1, 5, 10, 25, 50, 100)) +
+  scale_x_continuous(trans = nroot_trans(),
+                     breaks = c(-1, 0, 1, 5, 10, 25, 50, 100,200,300)) +
+  theme_bw()
+```
+
+The above chart contains information on the high-fatality attacks. These were carried out with either explosives or firearms. Explosives appear to have resulted in a larger amound of wounded than firearms.
+For the high fatality attacks, there appear to be a high correlation between the number of wounded and the number of fatalities. For the other attacks, it seems quite commong that an attack wounds many victims without causing fatalities. This could hint at the attacks in the datset being of two types: atttacks that specifically seeks to kill and wound as many civilians as possible, and attacks that do not.
+
+
+# Reflections
+Exploring this dataset is all about how to handle extreme observations. A lot of small attacks appeard in the data, but if the goal is to explore the number of fatalities, the high-fatality attacks are the really interesting incidents.
+
+Were the analysis to be continued, including the entire dataset would be an obvious way to gain more data. Further, the goal of an attack would be very interesting to explore - whether or not the intention of the attack is to kill civilians is very likely to be a main factor in the determination of which attacks are the most lethal.
+A final note on the subjecitivty of the data is important: the prevalence of small terror attacks in the data is also a testament on how the data collectors chose to label attacks.
+
+The dataset contain a lot of variables. Building an understanding of the variables was very timeconsuming. As many of the variables very text variables describing very specific characteristics of an attack, it is difficult to use them directly for exploratory data analysis. Cleaning the data, especially by lumping text into cathegorical variables, would be a huge improvement if further work was to be done with the dataset.

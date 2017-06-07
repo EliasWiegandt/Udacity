@@ -1,0 +1,139 @@
+ \documentclass[12pt]{article}
+ 
+\usepackage[margin=1in]{geometry} 
+\usepackage{amsmath,amsthm,amssymb}
+\usepackage{float}
+\usepackage{booktabs,siunitx}
+\usepackage[font=small,format=plain,labelfont=bf,up,textfont=normal,up,justification=justified]{caption}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage{graphicx}
+\usepackage{subcaption}
+ 
+\begin{document}
+  
+\title{Stroop Effect Project}
+\author{Elias Laura Wiegandt\\ 
+\textit{Data Analyst Nanodegree}}
+ 
+\maketitle
+
+\section{Question 1}
+In the Stroop test, an experiment subject is shown a page of words for colors. The ink of the words can either be the same as the word refer to (this is called the "congruent" subtest), or it can be different from the word (this is called the "incongruent" subtest). The task of the experiment subject is to say the color of the ink out loud for both subtests, and self report how much time it took to complete each substest.
+The independent variable is thus whether the shown page is congruent or incongruent, or in words: \textit{whether or not words matches ink}. \newline
+The dependent variable is the amount of time (in seconds) it takes the experiment subject to say the colors out loud.
+
+\section{Question 2}
+Appropriate tests would relate to whether or not it takes experiment subjects more, less or the same amount of time to complete the congruent and the incongruent parts of the experiment. \newline
+Intuitively, it seems most likely that it will take less time for subjects to complete the congruent than the incongruent subtest. This favors a one-sided hypothesis. But since the data consists of the same person being given two slightly similar tasks, there may be carry-over effects from the first to the second measurement, as the subject "learns" how to say the colors out loud. And the incongruent subtest is always shown second.
+Due to this, it is appropriate to use a two-sided test.
+\newline
+The null hypothesis is that the two tests on average take the same amount of time to complete. The alternative hypothesis is that they, on average, do not take the same amount of time to complete. Let $\mu_{c}$ denote the average time in seconds it takes to complete the congruent subtest and let $\mu_{i}$ denote the average time it takes to complete the incongruent subtest. The null and alternative hypothesis can be stated mathematically as:
+
+\begin{align*}
+	&\text{H}_{0}: \mu_{c}=\mu_{i} \\
+	&\text{H}_{\text{A}}: \mu_{c}\neq\mu_{i}
+\end{align*}
+As the two series in the sample are dependent, the methodology from lesson 10 is used. 
+This within-subject design controls for individual differences by looking at the change in time between the two subtests, for each individual.
+\newline
+The Central Limit Theorem states that the difference between the observed mean from the sample and the true mean of the population is a random variable that is \textit{normally distributed}. This entails that critical values for hypothesis testing can be derived from a normal distribution. But since the sample only includes 24 observations, it is appropriate to use a $t$-distribution and not a normal distribution to determine the critical values for the statistical test.
+
+\section{Question 3}
+Key statistics for the data can be seen in table \ref{tbl:StatOverview}. $\bar{x}$ denotes the average of each sample. It appears that the average time to complete the congruent subtest is lower than for the incongruent subtest. $S$ denotes the standard deviation of the samples with Bessels Correction. It appears to be slightly larger for the incongruent subtest than for the congruent subtest. $SEM$ denotes the standard error of the mean. 
+
+\begin{table}[h]
+\centering
+\caption{Key statistics}
+\label{tbl:StatOverview}
+\begin{tabular}{@{}lSS@{}}
+\toprule
+              & \textbf{Congruent} & \textbf{Incongruent} \\ \midrule
+$\bar{x}$ & 14.05              & 22.02                \\
+n    & 24                 & 24                   \\
+$S$    & 3.56               & 4.80                 \\
+$SEM$  & 0.73               & 0.98                 \\ \bottomrule
+\end{tabular}
+\end{table}
+
+\section{Question 4}
+
+\begin{figure}[ht]
+\centering
+\caption{Histograms of datasets}
+\label{fig:histCongruent}
+\begin{subfigure}{0.45\textwidth}
+	\centering
+	\begin{tikzpicture}
+	\begin{axis}[
+	axis on top=true,
+	ybar,ymin=0,
+	ymax=10,
+	ylabel=Frequency,
+	xtick pos=left, 
+	ytick pos=left,
+	xlabel={Congruent Subtest}
+	]
+    \addplot table [x=bin, y=Congruent, col sep=tab] {stroop_data.txt};
+	\end{axis}   
+	\end{tikzpicture}
+\end{subfigure}
+\hfill
+\begin{subfigure}{0.45\textwidth}
+	\centering
+	\begin{tikzpicture}
+	\begin{axis}[axis on top=true,ybar,ymin=0,ymax=10,xtick pos=left, ytick pos=left,xlabel={Incongruent Subtest}]
+    \addplot table [x=bin, y=Incongruent, col sep=tab] {stroop_data.txt};
+	\end{axis}   
+	\end{tikzpicture}
+\end{subfigure}
+\end{figure}
+
+Histograms of the data can be seen in figure \ref{fig:histCongruent}, with bins of size 2.5 seconds, centered around multiples of 2.5. The int table \ref{tbl:StatOverview} it appeared that the average amount of time it takes experiment subjects to say the colors out loud with congruent colors seems slightly shorter than for incongruent colors. This can also appears to be visible in the histograms. This, though, does not imply they are significantly different.
+The mode of the congruent subtest is 15 seconds, the mode of the incongruent subtest is 20 seconds.
+\newline
+As noted in the previous question, the standard deviation of the incongruent subtest appeared slightly larger than for the congruent subtest. The histograms indicate that this could be due to two quite high observations (both between 30 and 40 seconds).
+
+
+\section{Question 5}
+A two sided $t$-test of whether or not the average time to complete the congruent and incongruent subtests are equal, is conducted. This is done by calculating the difference between the time it takes to complete the two subtests, for each individual. This gives a new series, called "D", with 24 observation of the differences, which results in 23 degrees of freedom ($df$) for the $t$-test. The test is conducted on an $\alpha$-level of $1\%$, equivalent to a $99\%$ confidence interval.
+
+\begin{table}[h]
+\centering
+\caption{Test of equlality}
+\label{tbl:DiffOverview}
+\begin{tabular}{@{}lS@{}}
+\toprule
+        & \textbf{D}  \\
+\midrule
+$\mu_{0}$      & 0.00  \\
+$\bar{x}$    & -7.96 \\
+$df$      & 23    \\
+$SEM$     & 0.99  \\
+$t(46)$ & -8.02 \\
+$p$       & 0.00 \\
+Margin of error       & 2.79 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Confidence Interval}
+\label{tbl:CI}
+\begin{tabular}{@{}lSSS@{}} \toprule
+       & \textbf{p-value} & \textbf{Critical value} & \textbf{Confidence Interval} \\
+			\midrule
+Lower  & 0.005            & -2.81                   & -10.75                       \\
+Uppper & 0.995            & 2.81                    & -5.18                       \\ \bottomrule
+
+\end{tabular}
+\end{table}
+
+Key numbers for D can be seen in table \ref{tbl:DiffOverview}. $\mu_{0}$ shows the value of D implied by the null hypothesis. $\mu_{0}$ should be outside the confidence interval for D, if we are to accept the alternative hypothesis.
+Table \ref{tbl:DiffOverview} also shows the $t$-value from the statistical test of the average of D being equal to 0. This is clearly larger than the critical value for the test, which is shown in table \ref{tbl:CI}. In table \ref{tbl:CI} the confidence interval for D is also shown, and it is clear that $\mu_{0}=0$ is not in the confidence interval.
+Hence, there is a significant difference between the average time it takes to complete the congruent and incongruent tests.
+\newline
+As D is calculated as the time from the congruent subtest minus the time from the incongruent subtest, and it is significantly negative, it can be concluded that experiment subjects take a significantly longer time to do the incongruent subtest than the congruent subtest.
+\end{document}
+

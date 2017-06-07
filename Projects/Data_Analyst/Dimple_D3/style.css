@@ -1,0 +1,23 @@
+
+h1 {
+  text-align: center;
+}
+
+h2 {
+  text-align: center;
+  margin-bottom: 0px;
+}
+
+svg.svg_element {
+  margin: auto;
+  display: block;
+}
+
+p {
+    margin: 0px;
+    padding: 0px;
+}
+
+div.Description {
+  margin: auto;
+}

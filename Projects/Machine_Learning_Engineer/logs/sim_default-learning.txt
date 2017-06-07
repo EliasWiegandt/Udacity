@@ -1,0 +1,280 @@
+/-----------------------------------------
+| State-action rewards from Q-Learning
+\-----------------------------------------
+
+('waypoint: left', 'light: green', 'left: False', 'oncoming: left')
+ -- forward : 0.60
+ -- right : 0.89
+ -- None : 1.06
+ -- left : 0.75
+
+('waypoint: left', 'light: red', 'left: True', 'oncoming: None')
+ -- forward : -20.32
+ -- right : 0.00
+ -- None : 1.65
+ -- left : -19.87
+
+('waypoint: right', 'light: green', 'left: False', 'oncoming: forward')
+ -- forward : 0.74
+ -- right : 0.00
+ -- None : -2.60
+ -- left : 0.00
+
+('waypoint: forward', 'light: green', 'left: True', 'oncoming: None')
+ -- forward : 2.07
+ -- right : 0.72
+ -- None : 0.00
+ -- left : 0.55
+
+('waypoint: left', 'light: red', 'left: True', 'oncoming: forward')
+ -- forward : -19.75
+ -- right : 0.00
+ -- None : 0.00
+ -- left : 0.00
+
+('waypoint: left', 'light: red', 'left: True', 'oncoming: left')
+ -- forward : 0.00
+ -- right : 0.00
+ -- None : 0.00
+ -- left : 0.00
+
+('waypoint: right', 'light: red', 'left: False', 'oncoming: right')
+ -- forward : -20.41
+ -- right : 0.54
+ -- None : 0.00
+ -- left : 0.00
+
+('waypoint: left', 'light: green', 'left: False', 'oncoming: None')
+ -- forward : 0.56
+ -- right : -0.01
+ -- None : -2.95
+ -- left : 2.36
+
+('waypoint: forward', 'light: green', 'left: True', 'oncoming: forward')
+ -- forward : 0.00
+ -- right : -0.07
+ -- None : 0.00
+ -- left : 0.00
+
+('waypoint: left', 'light: green', 'left: True', 'oncoming: forward')
+ -- forward : 0.00
+ -- right : 0.00
+ -- None : -2.18
+ -- left : -10.27
+
+('waypoint: left', 'light: green', 'left: False', 'oncoming: forward')
+ -- forward : 0.73
+ -- right : 0.00
+ -- None : -2.94
+ -- left : 0.00
+
+('waypoint: right', 'light: red', 'left: False', 'oncoming: left')
+ -- forward : -9.16
+ -- right : 1.99
+ -- None : 0.47
+ -- left : -8.43
+
+('waypoint: right', 'light: green', 'left: True', 'oncoming: right')
+ -- forward : 0.00
+ -- right : 1.15
+ -- None : 0.00
+ -- left : 0.00
+
+('waypoint: right', 'light: green', 'left: True', 'oncoming: None')
+ -- forward : 0.00
+ -- right : 1.64
+ -- None : 0.00
+ -- left : 0.00
+
+('waypoint: right', 'light: red', 'left: True', 'oncoming: left')
+ -- forward : 0.00
+ -- right : 0.00
+ -- None : 1.78
+ -- left : 0.00
+
+('waypoint: left', 'light: red', 'left: False', 'oncoming: forward')
+ -- forward : -7.82
+ -- right : -0.07
+ -- None : 1.37
+ -- left : -9.08
+
+('waypoint: right', 'light: green', 'left: True', 'oncoming: forward')
+ -- forward : 0.00
+ -- right : 1.30
+ -- None : 0.00
+ -- left : 0.00
+
+('waypoint: right', 'light: green', 'left: True', 'oncoming: left')
+ -- forward : 0.00
+ -- right : 1.38
+ -- None : 0.00
+ -- left : 0.00
+
+('waypoint: forward', 'light: green', 'left: False', 'oncoming: None')
+ -- forward : 0.00
+ -- right : 0.59
+ -- None : -2.23
+ -- left : 0.73
+
+('waypoint: left', 'light: green', 'left: False', 'oncoming: right')
+ -- forward : -0.33
+ -- right : 0.77
+ -- None : -2.28
+ -- left : 0.00
+
+('waypoint: right', 'light: red', 'left: False', 'oncoming: None')
+ -- forward : -11.76
+ -- right : 1.76
+ -- None : 1.03
+ -- left : -23.72
+
+('waypoint: forward', 'light: red', 'left: False', 'oncoming: left')
+ -- forward : -9.46
+ -- right : 0.16
+ -- None : 1.50
+ -- left : -9.97
+
+('waypoint: left', 'light: red', 'left: False', 'oncoming: right')
+ -- forward : 0.00
+ -- right : 0.62
+ -- None : 0.45
+ -- left : 0.00
+
+('waypoint: right', 'light: red', 'left: True', 'oncoming: None')
+ -- forward : -19.87
+ -- right : 0.00
+ -- None : 1.32
+ -- left : 0.00
+
+('waypoint: right', 'light: red', 'left: False', 'oncoming: forward')
+ -- forward : 0.00
+ -- right : 0.00
+ -- None : 2.20
+ -- left : -7.17
+
+('waypoint: left', 'light: red', 'left: True', 'oncoming: right')
+ -- forward : -20.42
+ -- right : 0.00
+ -- None : 0.00
+ -- left : 0.00
+
+('waypoint: left', 'light: green', 'left: True', 'oncoming: left')
+ -- forward : -0.16
+ -- right : 0.00
+ -- None : 0.00
+ -- left : 1.81
+
+('waypoint: forward', 'light: green', 'left: True', 'oncoming: left')
+ -- forward : 0.00
+ -- right : 0.00
+ -- None : 0.00
+ -- left : 0.00
+
+('waypoint: left', 'light: green', 'left: True', 'oncoming: right')
+ -- forward : 0.00
+ -- right : 0.00
+ -- None : 0.00
+ -- left : -10.21
+
+('waypoint: right', 'light: green', 'left: False', 'oncoming: None')
+ -- forward : 0.62
+ -- right : 1.97
+ -- None : -3.49
+ -- left : 0.70
+
+('waypoint: right', 'light: green', 'left: False', 'oncoming: left')
+ -- forward : 0.61
+ -- right : 1.03
+ -- None : -0.02
+ -- left : 0.00
+
+('waypoint: right', 'light: green', 'left: False', 'oncoming: right')
+ -- forward : 0.00
+ -- right : 0.00
+ -- None : 0.00
+ -- left : -9.69
+
+('waypoint: left', 'light: green', 'left: True', 'oncoming: None')
+ -- forward : 0.00
+ -- right : 1.06
+ -- None : -2.27
+ -- left : 0.00
+
+('waypoint: forward', 'light: red', 'left: False', 'oncoming: None')
+ -- forward : -7.91
+ -- right : 0.65
+ -- None : 0.00
+ -- left : -8.96
+
+('waypoint: forward', 'light: red', 'left: True', 'oncoming: None')
+ -- forward : -20.14
+ -- right : -10.18
+ -- None : 0.00
+ -- left : -29.73
+
+('waypoint: forward', 'light: red', 'left: True', 'oncoming: forward')
+ -- forward : -20.03
+ -- right : 0.00
+ -- None : 0.00
+ -- left : 0.00
+
+('waypoint: forward', 'light: red', 'left: False', 'oncoming: forward')
+ -- forward : -8.49
+ -- right : 0.36
+ -- None : 0.00
+ -- left : -5.11
+
+('waypoint: right', 'light: red', 'left: True', 'oncoming: right')
+ -- forward : 0.00
+ -- right : 0.00
+ -- None : 1.32
+ -- left : 0.00
+
+('waypoint: left', 'light: red', 'left: False', 'oncoming: None')
+ -- forward : -9.57
+ -- right : 0.70
+ -- None : 1.43
+ -- left : -8.65
+
+('waypoint: forward', 'light: red', 'left: True', 'oncoming: left')
+ -- forward : 0.00
+ -- right : -9.79
+ -- None : 0.69
+ -- left : 0.00
+
+('waypoint: forward', 'light: red', 'left: False', 'oncoming: right')
+ -- forward : -4.99
+ -- right : 0.00
+ -- None : 0.00
+ -- left : 0.00
+
+('waypoint: forward', 'light: green', 'left: False', 'oncoming: left')
+ -- forward : 2.17
+ -- right : 0.61
+ -- None : 0.26
+ -- left : 0.12
+
+('waypoint: forward', 'light: green', 'left: False', 'oncoming: forward')
+ -- forward : 1.27
+ -- right : 0.00
+ -- None : 0.00
+ -- left : 0.00
+
+('waypoint: forward', 'light: green', 'left: False', 'oncoming: right')
+ -- forward : 0.00
+ -- right : 0.43
+ -- None : 0.00
+ -- left : 0.00
+
+('waypoint: left', 'light: red', 'left: False', 'oncoming: left')
+ -- forward : -9.51
+ -- right : 0.98
+ -- None : 1.95
+ -- left : -10.05
+
+('waypoint: right', 'light: red', 'left: True', 'oncoming: forward')
+ -- forward : 0.00
+ -- right : -15.35
+ -- None : 0.00
+ -- left : 0.00
+
